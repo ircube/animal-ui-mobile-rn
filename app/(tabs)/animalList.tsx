@@ -2,10 +2,48 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 
 import { Image, StyleSheet, Text, View } from "react-native";
-import { FlatList, GestureHandlerRootView } from "react-native-gesture-handler";
-import animals from "@/data/animalList";
+import {
+  FlatList,
+  GestureHandlerRootView,
+  RefreshControl,
+} from "react-native-gesture-handler";
+import { useEffect, useState } from "react";
+import Animal from "@/interfaces/animal";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function AnimalList() {
+  const [animals, setAnimals] = useState<Animal[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = () => {
+    setRefreshing(true);
+    fetch("https://animalapi-149569577bed.herokuapp.com/animals")
+      .then((response) => response.json())
+      .then(async (data) => {
+        console.log(data);
+        setAnimals(data);
+        await AsyncStorage.setItem("animals", JSON.stringify(data));
+      })
+      .catch((error) => console.error("Error fetching animals:", error))
+      .finally(() => setRefreshing(false));
+  };
+
+  const loadCachedData = async () => {
+    try {
+      const cachedData = await AsyncStorage.getItem("animals");
+      if (cachedData) {
+        setAnimals(JSON.parse(cachedData));
+      }
+    } catch (error) {
+      console.error("error loading cached data:", error);
+    }
+  };
+
+  useEffect(() => {
+    loadCachedData();
+    fetchData();
+  }, []);
+
   return (
     <>
       <ThemedView style={styles.titleContainer}>
@@ -31,7 +69,10 @@ export default function AnimalList() {
               </View>
             </View>
           )}
-          keyExtractor={(item) => item.name}
+          keyExtractor={(item) => item.id}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={fetchData} />
+          }
         />
       </GestureHandlerRootView>
     </>
