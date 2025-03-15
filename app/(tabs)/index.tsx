@@ -34,16 +34,20 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
-        <Image
-          style={styles.stepContainer}
-          source={require("@/assets/images/animals/fish.jpg")}
-        />
+        <TouchableOpacity onPress={() => router.navigate("/(tabs)/animalList")}>
+          <Image
+            style={styles.stepContainer}
+            source={require("@/assets/images/animals/fish.jpg")}
+          />
+        </TouchableOpacity>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
-        <Image
-          style={styles.stepContainer}
-          source={require("@/assets/images/animals/mammal.jpg")}
-        />
+        <TouchableOpacity onPress={() => router.navigate("/(tabs)/animalList")}>
+          <Image
+            style={styles.stepContainer}
+            source={require("@/assets/images/animals/mammal.jpg")}
+          />
+        </TouchableOpacity>
       </ThemedView>
     </ParallaxScrollView>
   );

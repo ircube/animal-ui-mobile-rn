@@ -21,9 +21,15 @@ import Animal from "@/interfaces/animal";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
+import * as ImagePicker from 'expo-image-picker';
+import { FontAwesome } from "@expo/vector-icons";
 
 // TODO: get this value from environment variables, setup for local and production.
-const api_url = "https://animalapi-149569577bed.herokuapp.com/animals";
+// const base_url = "http://192.168.0.101:5000/";
+
+const base_url = "https://animalapi-149569577bed.herokuapp.com";
+const api_url =  `${base_url}/animals/`;
+
 
 export default function AnimalList() {
   const [animals, setAnimals] = useState<Animal[]>([]);
@@ -39,13 +45,19 @@ export default function AnimalList() {
   const fetchData = () => {
     setRefreshing(true);
     fetch(api_url)
-      .then((response) => response.json())
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json()})
       .then(async (data) => {
-        console.log(data);
         setAnimals(data);
         await AsyncStorage.setItem("animals", JSON.stringify(data));
       })
-      .catch((error) => console.error("Error fetching animals: ", error))
+      .catch((error) => {
+        console.error("Error fetching animals: ", error)
+        alert(`FAIL: ${error.message}`)
+      })
       .finally(() => setRefreshing(false));
   };
 
@@ -65,15 +77,42 @@ export default function AnimalList() {
       setError("Name, Description and Animal Classification are required");
       return;
     }
+  
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('description', description);
+    formData.append('animalClassification', animalClassification);
+  
+    if (imageUrl) {
+      const uriParts = imageUrl.split('.');
+      const fileType = uriParts[uriParts.length - 1];
+      const imageFile = {
+        uri: imageUrl,
+        name: `photo.${fileType}`,
+        type: `image/${fileType}`,
+      };
+      formData.append('imageUrl', imageFile as any);
+    }
 
     fetch(api_url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, description, animalClassification }),
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      body: formData,
     })
-      .then((response) => response.json())
-      .then(async (data) => {
-        setAnimals([...animals, data]);
+      .then((response) => {
+        
+        return {
+          response: response.json(),
+          ok: response.ok,
+          status: response.status,
+          responseRaw: response
+        }
+      })
+      .then(async (data: {response: Promise<Animal>,ok: boolean, status: number, responseRaw: Response}) => {
+        if(data.ok) setAnimals([...animals, await data.response]);
+        else alert('Error code: ' + data.status + JSON.stringify(await data.response));
         setModalVisible(false);
         setName("");
         setDescription("");
@@ -85,6 +124,30 @@ export default function AnimalList() {
       .catch((error) => {
         console.error("Error posting animal: ", error);
       });
+  };
+
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    })
+    if (!result.canceled) {
+      setImageUrl(result.assets[0].uri);
+    }
+  }
+
+  const takePhoto = async () => {
+    let result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setImageUrl(result.assets[0].uri);
+    }
   };
 
   useEffect(() => {
@@ -148,24 +211,31 @@ export default function AnimalList() {
               selectedValue={animalClassification}
               onValueChange={(itemValue) => setAnimalClassification(itemValue)}
               style={styles.picker}
+              
             >
-              <Picker.Item label="Select classification" value="" />
-              <Picker.Item label="Mammals" value="Mammals" />
-              <Picker.Item label="Birds" value="Birds" />
-              <Picker.Item label="Reptiles" value="Reptiles" />
-              <Picker.Item label="Amphibians" value="Amphibians" />
-              <Picker.Item label="Fish" value="Fish" />
-              <Picker.Item label="Insects" value="Insects" />
-              <Picker.Item label="Arachnids" value="Arachnids" />
-              <Picker.Item label="Crustaceans" value="Crustaceans" />
+              <Picker.Item label="Select classification" value="" style={styles.pickerItem} />
+              <Picker.Item label="Mammals" value="Mammals" style={styles.pickerItem} />
+              <Picker.Item label="Birds" value="Birds" style={styles.pickerItem} />
+              <Picker.Item label="Reptiles" value="Reptiles" style={styles.pickerItem} />
+              <Picker.Item label="Amphibians" value="Amphibians" style={styles.pickerItem}/>
+              <Picker.Item label="Fish" value="Fish" style={styles.pickerItem}/>
+              <Picker.Item label="Insects" value="Insects" style={styles.pickerItem}/>
+              <Picker.Item label="Arachnids" value="Arachnids" style={styles.pickerItem}/>
+              <Picker.Item label="Crustaceans" value="Crustaceans" style={styles.pickerItem}/>
             </Picker>
-            <TextInput
-              placeholder="Image URL"
-              value={imageUrl}
-              onChangeText={setImageUrl}
-              style={styles.input}
-              placeholderTextColor={"gray"}
-            />
+            
+            <View style={styles.buttonImage}>
+              <TextInput
+                placeholder="Image URL"
+                value={imageUrl}
+                onChangeText={setImageUrl}
+                style={styles.inputImage}
+                placeholderTextColor={"gray"}
+              />
+              <FontAwesome.Button name="photo" size={25} color="#aaa" onPress={pickImage} backgroundColor={"#030"} iconStyle={{ marginRight: 0 }} />
+              <FontAwesome.Button name="camera" size={25} color="#aaa" onPress={takePhoto} backgroundColor={"#030"} iconStyle={{ marginRight: 0 }} />
+                
+            </View>
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
             <View style={styles.buttonRow}>
               <Button
@@ -244,17 +314,41 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     color: "white",
   },
+  inputImage: {
+    width: 100,
+    height: 40,
+    borderColor: "gray",
+    borderWidth: 1,
+    marginBottom: 10,
+    paddingHorizontal: 10,
+    borderRadius: 5,
+    color: "white",
+  },
   buttonRow: {
     display: "flex",
     width: 200,
+    paddingTop: 30,
     flexDirection: "row",
     justifyContent: "space-between",
+  },
+  buttonImage: {
+    display: "flex",
+    width: 200,
+    height: 40,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
+
   },
   picker: {
     width: 200,
     height: 60,
     marginBottom: 10,
     color: "white",
+  },
+  pickerItem: {
+    backgroundColor: '#030',
+    color: '#bbb'
   },
   errorText: {
     color: "red",
